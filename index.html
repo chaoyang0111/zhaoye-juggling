@@ -1,0 +1,57 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>照野的无手杂耍铺 · V0.1</title>
+<style>
+:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;padding:24px;background:#102124;color:#e7f2ee;font:14px system-ui,"Microsoft YaHei",sans-serif}.wrap{max-width:860px;margin:auto}h1{font-size:25px;margin:7px 0 4px}.hint{color:#b1c9c2;line-height:1.6}.grid{display:grid;grid-template-columns:1.5fr 1fr;gap:15px;margin-top:18px}.card{border:1px solid #45615e;background:#1b3437;border-radius:14px;overflow:hidden}canvas{display:block;width:100%;height:auto}.controls{padding:16px}.controls h2{margin:0 0 12px;font-size:16px}.ball{display:grid;grid-template-columns:50px 1fr 1fr;align-items:center;gap:7px;padding:12px 0;border-bottom:1px solid #45615e}label{font-size:12px}input[type=color]{width:100%;height:33px;border:1px solid #557c71;border-radius:6px;background:transparent}select{width:100%;height:33px;color:#e7f2ee;background:#29464a;border:1px solid #557c71;border-radius:6px}input[type=range]{width:100%;accent-color:#ddbf80}.slider{margin-top:15px}button{border:1px solid #c9b27f;background:#d5bf8c;border-radius:8px;color:#1d2b27;padding:9px 13px;cursor:pointer;margin:0 5px 12px 12px}#status{color:#d8c58f;margin:0 15px}.foot{font-size:12px;color:#aac2b9;padding:0 14px 8px} @media(max-width:700px){.grid{grid-template-columns:1fr}body{padding:14px}}
+</style>
+<div class="wrap"><h1>照野的无手杂耍铺</h1><div class="hint">手可以没有，球不能乱飞。三球瀑布式循环表演 · 单文件离线版</div><div class="grid"><section class="card"><div style="padding:14px 14px 0"><b>三球瀑布式 · Cascade 3</b></div><canvas id="c" width="720" height="420"></canvas><button id="pause">暂停</button><button id="reset">重置</button><span id="status">表演中</span><p class="foot">基本节奏：Siteswap 3 · 每颗球交替抛接</p></section><section class="card controls"><h2>球的颜色与形状</h2><div id="options"></div><div class="slider"><label>向上抛的力度 <output id="forceText">100%</output></label><input id="force" type="range" min="65" max="145" step="5" value="100"></div><div class="slider"><label>播放速度 <output id="speedText">1.0 倍</output></label><input id="speed" type="range" min="50" max="150" step="10" value="100"></div><p class="hint">更大力度会增加高度与滞空时间，播放速度不影响轨迹。</p></section></div></div>
+<script>
+(()=>{
+const defaults=[['#f7b18d','circle'],['#9fdfc0','square'],['#dfc586','triangle']];
+let balls=defaults.map(x=>[...x]),force=1,speed=1,beats=.17,play=true,last=0;
+const ctx=document.getElementById('c').getContext('2d'),opts=document.getElementById('options');
+const colorInputs=[],shapeInputs=[],nameShapes=[['circle','圆形'],['square','方形'],['diamond','菱形'],['triangle','三角形']];
+for(let i=0;i<3;i++){
+ const row=document.createElement('div');row.className='ball';
+ const name=document.createElement('b');name.textContent=(i+1)+' 号球';
+ const color=document.createElement('input');color.type='color';color.value=balls[i][0];color.ariaLabel=(i+1)+'号球颜色';
+ const shape=document.createElement('select');shape.ariaLabel=(i+1)+'号球形状';
+ for(const [value,label] of nameShapes){const o=document.createElement('option');o.value=value;o.textContent=label;shape.add(o)}
+ shape.value=balls[i][1];row.append(name,color,shape);opts.append(row);
+ color.oninput=()=>balls[i][0]=color.value;shape.onchange=()=>balls[i][1]=shape.value;
+ colorInputs.push(color);shapeInputs.push(shape);
+}
+document.getElementById('pause').onclick=e=>{play=!play;e.target.textContent=play?'暂停':'继续';document.getElementById('status').textContent=play?'表演中':'已暂停'};
+document.getElementById('reset').onclick=()=>{
+ balls=defaults.map(x=>[...x]);balls.forEach((b,i)=>{colorInputs[i].value=b[0];shapeInputs[i].value=b[1]});
+ force=speed=1;beats=.17;document.getElementById('force').value=100;document.getElementById('speed').value=100;
+ document.getElementById('forceText').textContent='100%';document.getElementById('speedText').textContent='1.0 倍';play=true;
+ document.getElementById('pause').textContent='暂停';document.getElementById('status').textContent='表演中';
+};
+document.getElementById('force').oninput=e=>{force=+e.target.value/100;document.getElementById('forceText').textContent=e.target.value+'%'};
+document.getElementById('speed').oninput=e=>{speed=+e.target.value/100;document.getElementById('speedText').textContent=speed.toFixed(1)+' 倍'};
+const mod=(a,n)=>((a%n)+n)%n;
+function position(i){
+ const t=Math.floor(beats),k=t-mod(t-i,3),age=beats-k,left=mod(k,2)===0;
+ const from=left?332:388,to=left?398:322,next=left?388:332,h=135*force*force;
+ if(age<2.35){const u=age/2.35;return [from+(to-from)*u,330-4*h*u*(1-u)]}
+ const u=(age-2.35)/.65;return [to+(next-to)*u,330+10*Math.sin(Math.PI*u)];
+}
+function paint(x,y,c,shape){
+ ctx.save();ctx.translate(x,y);ctx.fillStyle=c;ctx.strokeStyle='#ffffffaa';ctx.lineWidth=1.5;ctx.shadowColor=c;ctx.shadowBlur=12;ctx.beginPath();
+ if(shape==='square'){ctx.rect(-13,-13,26,26)}
+ else if(shape==='diamond'){ctx.moveTo(0,-17);ctx.lineTo(17,0);ctx.lineTo(0,17);ctx.lineTo(-17,0);ctx.closePath()}
+ else if(shape==='triangle'){ctx.moveTo(0,-17);ctx.lineTo(16,13);ctx.lineTo(-16,13);ctx.closePath()}
+ else ctx.arc(0,0,15,0,2*Math.PI);
+ ctx.fill();ctx.shadowBlur=0;ctx.stroke();ctx.restore();
+}
+function draw(){
+ const g=ctx.createLinearGradient(0,0,720,420);g.addColorStop(0,'#24494a');g.addColorStop(1,'#14282c');ctx.fillStyle=g;ctx.fillRect(0,0,720,420);
+ ctx.setLineDash([4,8]);ctx.lineWidth=1;ctx.strokeStyle='#a5ccbb55';
+ for(const [a,b] of [[332,398],[388,322]]){ctx.beginPath();for(let j=0;j<=40;j++){const u=j/40,x=a+(b-a)*u,y=330-4*135*force*force*u*(1-u);j?ctx.lineTo(x,y):ctx.moveTo(x,y)}ctx.stroke()}
+ ctx.setLineDash([]);ctx.textAlign='center';ctx.font='13px system-ui';
+ for(const [x,label] of [[330,'左手'],[390,'右手']]){ctx.strokeStyle='#a6c9be';ctx.beginPath();ctx.ellipse(x,330,19,5,0,0,Math.PI*2);ctx.stroke();ctx.fillStyle='#b2cec6';ctx.fillText(label,x,360)}
+ for(let i=0;i<3;i++){const [x,y]=position(i);paint(x,y,...balls[i])}
+}
+function tick(now){if(last&&play)beats+=Math.min(now-last,80)*speed/(510*force);last=now;draw();requestAnimationFrame(tick)}
+requestAnimationFrame(tick);
+})();
+</script></html>
